@@ -1,6 +1,15 @@
 import ModelVisuals
-import time
+import pygame
 
-while True:
-    time.sleep(0.1)
-    ModelVisuals.RenderStep()
+
+pygame.init();
+windowSurface = pygame.display.set_mode((600, 600));
+
+running = True;
+while running:
+    for event in pygame.event.get():
+        ModelVisuals.HandleEvent(event);
+        if event.type == pygame.QUIT:
+            running = False;
+        
+    ModelVisuals.RenderStep(windowSurface);
