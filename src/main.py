@@ -1,15 +1,24 @@
 import ModelVisuals
 import pygame
 
+FPS = 30
 
 pygame.init();
 windowSurface = pygame.display.set_mode((600, 600));
+clock = pygame.time.Clock()
 
-running = True;
+
+windowHandler = ModelVisuals.WindowHandler(windowSurface)
+
+
+running = True
 while running:
     for event in pygame.event.get():
-        ModelVisuals.HandleEvent(event);
+        windowHandler.HandleEvent(event);
         if event.type == pygame.QUIT:
             running = False;
         
-    ModelVisuals.RenderStep(windowSurface);
+    windowHandler.RenderStep(windowSurface)
+    clock.tick(FPS) 
+
+pygame.quit()
