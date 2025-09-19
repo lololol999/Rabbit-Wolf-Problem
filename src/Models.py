@@ -140,6 +140,8 @@ def train_step(num_steps=100):
     rabbit_log_probs = []
     wolf_log_probs = []
 
+    lastDistance = torch.norm(rabbit_pos - wolf_pos)
+
     for step in range(num_steps):
         # Rabbit's move
         state_rabbit = torch.cat([rabbit_pos, wolf_pos.detach(), torch.tensor([step / 100.0])])
@@ -181,9 +183,15 @@ def train_step(num_steps=100):
     current_wolf_pos = wolf_pos.detach().clone()
 
     # Check win condition
-    distance = torch.norm(rabbit_pos - wolf_pos)
-    rabbit_reward = 1.0 if distance >= 1.0 else 0.0
-    wolf_reward = 1.0 - rabbit_reward
+    distance = torch.linalg.vector_norm(rabbit_pos - wolf_pos)
+    rabbit_reward = 0.0
+    wolf_reward = 0.0
+    if distance > lastDistance:
+        rabbit_reward += 0.1
+        wolf_reward -= 0.1
+    else:
+        rabbit_reward -= 0.1
+        wolf_reward += 0.1
 
     # Policy gradient update for rabbit
     rabbit_loss = -torch.stack(rabbit_log_probs).sum() * rabbit_reward
