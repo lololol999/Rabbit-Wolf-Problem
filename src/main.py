@@ -3,7 +3,7 @@ import pygame
 
 FPS = 30
 
-pygame.init();
+pygame.init()
 windowSurface = pygame.display.set_mode((600, 600));
 clock = pygame.time.Clock()
 

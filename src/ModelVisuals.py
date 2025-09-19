@@ -3,20 +3,34 @@ import pygame
 from pygame.locals import *
 
 import Colors as COLORS
-import RabbitModel as model
+import Models as model
+
+pygame.init()
 
 class NeuralNetworkVisualizer:
-    def __init__(self, startX, startY, width, height):
+    def __init__(self, startX, startY, width, height, network_type="rabbit"):
         self.start_x = startX
         self.start_y = startY
         self.drawing_space_width = width
         self.drawing_space_height = height
-        self.layer_spacing = width // (len(model.net.layer_activations) + 1)
+        self.network_type = network_type
+        
+        # Get the appropriate network based on type
+        if network_type == "rabbit":
+            self.net = model.rabbit_net
+            self.title = "Rabbit Network"
+        else:
+            self.net = model.wolf_net
+            self.title = "Wolf Network"
+            
+        # Initialize with empty activations
+        self.layer_spacing = width // 6  # Default value, will be updated
         self.neuron_radius = 15
-        self.activations = model.net.layer_activations
+        self.activations = []
         self.font = pygame.font.SysFont('Arial', 14)
+        self.update_activations()
 
-    # Neuron shit
+    # Neuron color method
     def GetNeuronColor(self, activation):
         # Converts activation value to a color
         if activation > 0:
@@ -28,18 +42,26 @@ class NeuralNetworkVisualizer:
             intensity = min(255, int(-activation * 255))
             return (255, 255 - intensity, 255 - intensity)
         
-
     def update_activations(self):
         # Get the latest activations from the model
-        self.activations = model.net.layer_activations
+        if hasattr(self.net, 'layer_activations') and len(self.net.layer_activations) > 0:
+            self.activations = self.net.layer_activations
+            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 1)
+        else:
+            # Default activations if none available
+            self.activations = [[0] * 5, [0] * 10, [0] * 10, [0] * 6, [0] * 2]
+            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 1)
 
     def draw_neuron_connections(self, surface):
+        if not self.activations:
+            return
+            
         for layer_idx in range(len(self.activations) - 1):
             current_layer = self.activations[layer_idx]
             next_layer = self.activations[layer_idx + 1]
             
-            current_x = (layer_idx + 1) * self.layer_spacing
-            next_x = (layer_idx + 2) * self.layer_spacing
+            current_x = (layer_idx + 1) * self.layer_spacing + self.start_x
+            next_x = (layer_idx + 2) * self.layer_spacing + self.start_x
             
             for i, current_activation in enumerate(current_layer):
                 current_y = self.drawing_space_height * (i + 1) / (len(current_layer) + 1) + self.start_y
@@ -65,20 +87,23 @@ class NeuralNetworkVisualizer:
                     surface.blit(line_surface, (current_x, current_y))
 
     def draw_network(self, surface):
+        if not self.activations:
+            return
+            
         # Draw connections first (behind neurons)
         self.draw_neuron_connections(surface)
         
         # Draw neurons
         for layer_idx, layer_activations in enumerate(self.activations):
             neuron_count = len(layer_activations)
-            layer_x = (layer_idx + 1) * self.layer_spacing
+            layer_x = (layer_idx + 1) * self.layer_spacing + self.start_x
             
             for neuron_idx in range(neuron_count):
-                neuron_y = self.window_height * (neuron_idx + 1) / (neuron_count + 1)
+                neuron_y = self.drawing_space_height * (neuron_idx + 1) / (neuron_count + 1) + self.start_y
                 
                 # Get activation value and convert to color
                 activation = layer_activations[neuron_idx]
-                color = self.get_neuron_color(activation)
+                color = self.GetNeuronColor(activation)
                 
                 # Draw neuron
                 pygame.draw.circle(surface, color, (layer_x, neuron_y), self.neuron_radius)
@@ -91,31 +116,37 @@ class NeuralNetworkVisualizer:
         
         # Draw layer labels
         for layer_idx in range(len(self.activations)):
-            layer_x = (layer_idx + 1) * self.layer_spacing
+            layer_x = (layer_idx + 1) * self.layer_spacing + self.start_x
             layer_name = f"Layer {layer_idx+1}"
             text = self.font.render(layer_name, True, COLORS.BLACK)
-            surface.blit(text, (layer_x - text.get_width()//2, 20))
+            surface.blit(text, (layer_x - text.get_width()//2, self.start_y + 20))
+        
+        # Draw network title
+        title_text = self.font.render(self.title, True, COLORS.BLACK)
+        surface.blit(title_text, (self.start_x + self.drawing_space_width//2 - title_text.get_width()//2, self.start_y - 30))
 
 
 
-visualizer = NeuralNetworkVisualizer(0, 0, 600, 600)
-
-
+# Create visualizers for both networks
+rabbit_visualizer = NeuralNetworkVisualizer(50, 100, 200, 400, "rabbit")
+wolf_visualizer = NeuralNetworkVisualizer(350, 100, 200, 400, "wolf")
 
 class WindowHandler:
     def __init__(self, windowSurface):
-        windowSurface
+        self.windowSurface = windowSurface
         
     def ClearScreen(self, windowSurface):
         windowSurface.fill(COLORS.WHITE)
 
     def RenderStep(self, windowSurface):
         self.ClearScreen(windowSurface)
-        visualizer.update_activations()
-        visualizer.draw_network(windowSurface)
+        rabbit_visualizer.update_activations()
+        wolf_visualizer.update_activations()
+        rabbit_visualizer.draw_network(windowSurface)
+        wolf_visualizer.draw_network(windowSurface)
         pygame.display.update()
 
-    def HandleEvent(event):
+    def HandleEvent(self, event):
         if event.type == KEYDOWN:
             if event.key == K_SPACE:
                 # Trigger a training step when space is pressed
