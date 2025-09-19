@@ -5,6 +5,7 @@ import torch.optim as optim
 import math
 
 
+
 # нейросеть и слои
 class RabbitNet(nn.Module):
    def __init__(self):
