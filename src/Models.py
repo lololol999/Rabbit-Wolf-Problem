@@ -18,6 +18,9 @@ class RabbitNet(nn.Module):
     def forward(self, x):
         self.layer_activations = []
         
+        # Record input as first layer activation
+        self.layer_activations.append(x.detach().numpy())
+        
         x = F.relu(self.fc1(x))
         self.layer_activations.append(x.detach().numpy())
         
@@ -48,6 +51,9 @@ class WolfNet(nn.Module):
     def forward(self, x):
         self.layer_activations = []
         
+        # Record input as first layer activation
+        self.layer_activations.append(x.detach().numpy())
+        
         x = F.relu(self.fc1(x))
         self.layer_activations.append(x.detach().numpy())
         
@@ -69,6 +75,10 @@ class WolfNet(nn.Module):
 rabbit_net = RabbitNet()
 wolf_net = WolfNet()
 
+# Create optimizers
+opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
+opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
+
 print("Rabbit Network:")
 print(rabbit_net)
 print("\nWolf Network:")
@@ -76,42 +86,50 @@ print(wolf_net)
 
 def get_noisy_observation(rabbit_pos):
     angle = torch.rand(1) * 2 * math.pi
-    radius = torch.rand(1).sqrt() * 1.0  # Uniform in circle
+    radius = torch.rand(1).sqrt()  # Uniform in circle
     offset = torch.tensor([torch.cos(angle), torch.sin(angle)]) * radius
     return rabbit_pos + offset
 
 # Training function
 def train_step():
+    # Zero gradients
+    opt_rabbit.zero_grad()
+    opt_wolf.zero_grad()
+    
     # Initialize positions and history
-    rabbit_pos = torch.zeros(2)
-    wolf_pos = torch.zeros(2)
+    rabbit_pos = torch.zeros(2, requires_grad=True)
+    wolf_pos = torch.zeros(2, requires_grad=True)
     rabbit_log_probs = []
     wolf_log_probs = []
 
     for step in range(100):
         # Rabbit's move
-        state_rabbit = torch.cat([rabbit_pos, wolf_pos, torch.tensor([step / 100.0])])
+        state_rabbit = torch.cat([rabbit_pos, wolf_pos.detach(), torch.tensor([step / 100.0])])
         action_mean = rabbit_net(state_rabbit)
         action_mean = action_mean / torch.norm(action_mean)
-        noise = torch.randn(2) * 0.1
-        action_rabbit = action_mean + noise
+        
+        # Create distribution with requires_grad=True
+        dist = torch.distributions.Normal(action_mean, 0.1)
+        action_rabbit = dist.rsample()  # This maintains gradient connection
         action_rabbit = action_rabbit / torch.norm(action_rabbit)
-        log_prob_rabbit = -0.5 * torch.sum(noise ** 2)  # Gaussian log-likelihood
+        log_prob_rabbit = dist.log_prob(action_rabbit).sum()  # Calculate proper log prob
 
         rabbit_pos = rabbit_pos + action_rabbit
         rabbit_log_probs.append(log_prob_rabbit)
 
-        # Wolf's noisy observation
-        obs_rabbit = get_noisy_observation(rabbit_pos)
+        # Wolf's noisy observation - detach rabbit_pos to break gradient connection
+        obs_rabbit = get_noisy_observation(rabbit_pos.detach())
 
         # Wolf's move
         state_wolf = torch.cat([wolf_pos, obs_rabbit, torch.tensor([step / 100.0])])
         action_mean_wolf = wolf_net(state_wolf)
         action_mean_wolf = action_mean_wolf / torch.norm(action_mean_wolf)
-        noise_wolf = torch.randn(2) * 0.1
-        action_wolf = action_mean_wolf + noise_wolf
+        
+        # Create distribution for wolf
+        dist_wolf = torch.distributions.Normal(action_mean_wolf, 0.1)
+        action_wolf = dist_wolf.rsample()
         action_wolf = action_wolf / torch.norm(action_wolf)
-        log_prob_wolf = -0.5 * torch.sum(noise_wolf ** 2)
+        log_prob_wolf = dist_wolf.log_prob(action_wolf).sum()
 
         wolf_pos = wolf_pos + action_wolf
         wolf_log_probs.append(log_prob_wolf)
@@ -123,15 +141,11 @@ def train_step():
 
     # Policy gradient update for rabbit
     rabbit_loss = -torch.stack(rabbit_log_probs).sum() * rabbit_reward
-    opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
-    opt_rabbit.zero_grad()
     rabbit_loss.backward()
     opt_rabbit.step()
 
     # Policy gradient update for wolf
     wolf_loss = -torch.stack(wolf_log_probs).sum() * wolf_reward
-    opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
-    opt_wolf.zero_grad()
     wolf_loss.backward()
     opt_wolf.step()
     

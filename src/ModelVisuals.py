@@ -1,6 +1,7 @@
 # Importing pygame module
 import pygame
 from pygame.locals import *
+from math import log
 
 import Colors as COLORS
 import Models as model
@@ -24,8 +25,8 @@ class NeuralNetworkVisualizer:
             self.title = "Wolf Network"
             
         # Initialize with empty activations
-        self.layer_spacing = width // 6  # Default value, will be updated
-        self.neuron_radius = 15
+        self.layer_spacing = width
+        self.neuron_radius = 12
         self.activations = []
         self.font = pygame.font.SysFont('Arial', 14)
         self.update_activations()
@@ -41,21 +42,22 @@ class NeuralNetworkVisualizer:
             # Red for negative values
             intensity = min(255, int(-activation * 255))
             return (255, 255 - intensity, 255 - intensity)
-        
+
     def update_activations(self):
         # Get the latest activations from the model
         if hasattr(self.net, 'layer_activations') and len(self.net.layer_activations) > 0:
             self.activations = self.net.layer_activations
-            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 1)
+            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 2)
         else:
-            # Default activations if none available
-            self.activations = [[0] * 5, [0] * 10, [0] * 10, [0] * 6, [0] * 2]
-            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 1)
+            # Default activations if none available (now includes input layer)
+            self.activations = [[0] * 5, [0] * 10, [0] * 10, [0] * 10, [0] * 6, [0] * 2]
+            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 2)
 
     def draw_neuron_connections(self, surface):
-        if not self.activations:
+        if not self.activations or len(self.activations) < 2:
             return
             
+        # Start from layer 0 (input) to layer 1 (first hidden)
         for layer_idx in range(len(self.activations) - 1):
             current_layer = self.activations[layer_idx]
             next_layer = self.activations[layer_idx + 1]
@@ -71,7 +73,7 @@ class NeuralNetworkVisualizer:
                     
                     # Calculate line properties based on activations
                     alpha = min(255, int(abs(current_activation) * 255))
-                    width = max(1, int(abs(current_activation) * 3))
+                    width = int(log(max(1, int(abs(current_activation) * 3))))
                     
                     # Create a surface for the line with alpha
                     line_surface = pygame.Surface((abs(next_x - current_x), abs(next_y - current_y) + 1), pygame.SRCALPHA)
@@ -100,7 +102,6 @@ class NeuralNetworkVisualizer:
             
             for neuron_idx in range(neuron_count):
                 neuron_y = self.drawing_space_height * (neuron_idx + 1) / (neuron_count + 1) + self.start_y
-                
                 # Get activation value and convert to color
                 activation = layer_activations[neuron_idx]
                 color = self.GetNeuronColor(activation)
@@ -114,22 +115,28 @@ class NeuralNetworkVisualizer:
                     text = self.font.render(f"{activation:.2f}", True, COLORS.BLACK)
                     surface.blit(text, (layer_x - text.get_width()//2, neuron_y - text.get_height()//2))
         
-        # Draw layer labels
+        # Draw layer labels with special names for input and output layers
         for layer_idx in range(len(self.activations)):
             layer_x = (layer_idx + 1) * self.layer_spacing + self.start_x
-            layer_name = f"Layer {layer_idx+1}"
+            
+            if layer_idx == 0:
+                layer_name = "Input"
+            elif layer_idx == len(self.activations) - 1:
+                layer_name = "Output"
+            else:
+                layer_name = f"Hidden {layer_idx}"
+                
             text = self.font.render(layer_name, True, COLORS.BLACK)
-            surface.blit(text, (layer_x - text.get_width()//2, self.start_y + 20))
+            surface.blit(text, ((layer_x - text.get_width()) * 1.05, self.start_y))
         
         # Draw network title
         title_text = self.font.render(self.title, True, COLORS.BLACK)
         surface.blit(title_text, (self.start_x + self.drawing_space_width//2 - title_text.get_width()//2, self.start_y - 30))
 
 
-
 # Create visualizers for both networks
-rabbit_visualizer = NeuralNetworkVisualizer(50, 100, 200, 400, "rabbit")
-wolf_visualizer = NeuralNetworkVisualizer(350, 100, 200, 400, "wolf")
+rabbit_visualizer = NeuralNetworkVisualizer(50, 100, 450, 400, "rabbit")
+wolf_visualizer = NeuralNetworkVisualizer(500, 100, 450, 400, "wolf")
 
 class WindowHandler:
     def __init__(self, windowSurface):
