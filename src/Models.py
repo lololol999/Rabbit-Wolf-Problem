@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
+import torch.nn.functional as functional
 import math
 
 
@@ -32,16 +31,16 @@ class RabbitNet(nn.Module):
         # Record input as first layer activation
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc1(x))
+        x = functional.relu(self.fc1(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc2(x))
+        x = functional.relu(self.fc2(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc3(x))
+        x = functional.relu(self.fc3(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc4(x))
+        x = functional.relu(self.fc4(x))
         self.layer_activations.append(x.detach().numpy())
         
         x = self.fc5(x)
@@ -65,16 +64,16 @@ class WolfNet(nn.Module):
         # Record input as first layer activation
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc1(x))
+        x = functional.relu(self.fc1(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc2(x))
+        x = functional.relu(self.fc2(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc3(x))
+        x = functional.relu(self.fc3(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = F.relu(self.fc4(x))
+        x = functional.relu(self.fc4(x))
         self.layer_activations.append(x.detach().numpy())
         
         x = self.fc5(x)
