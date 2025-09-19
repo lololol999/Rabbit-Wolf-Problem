@@ -1,10 +1,10 @@
 import ModelVisuals
 import pygame
 
-FPS = 30
+FPS = 30                         
 
 pygame.init()
-windowSurface = pygame.display.set_mode((1200, 1200));
+windowSurface = pygame.display.set_mode((1000, 700));
 clock = pygame.time.Clock()
 
 

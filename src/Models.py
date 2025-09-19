@@ -4,6 +4,17 @@ import torch.nn.functional as F
 import torch.optim as optim
 import math
 
+
+current_rabbit_pos = torch.zeros(2)
+current_wolf_pos = torch.zeros(2)
+
+
+rabbit_positions = []
+wolf_positions = []
+noisy_rabbit_positions = []
+
+
+
 # Neural network classes with activation tracking
 class RabbitNet(nn.Module):
     def __init__(self):
@@ -79,6 +90,25 @@ wolf_net = WolfNet()
 opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
 opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
 
+
+def reset_models():
+    global current_rabbit_pos, current_wolf_pos, rabbit_net, wolf_net, opt_rabbit, opt_wolf
+    
+    # Reset networks
+    rabbit_net = RabbitNet()
+    wolf_net = WolfNet()
+    
+    # Reset optimizers
+    opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
+    opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
+    
+    # Reset positions
+    current_rabbit_pos = torch.zeros(2)
+    current_wolf_pos = torch.zeros(2)
+    
+    print("Models and positions reset to initial state")
+
+
 print("Rabbit Network:")
 print(rabbit_net)
 print("\nWolf Network:")
@@ -91,18 +121,26 @@ def get_noisy_observation(rabbit_pos):
     return rabbit_pos + offset
 
 # Training function
-def train_step():
+def train_step(num_steps=100):
+    global rabbit_positions, wolf_positions, noisy_rabbit_positions, current_rabbit_pos, current_wolf_pos
+    
+    # Reset position tracking
+    rabbit_positions = []
+    wolf_positions = []
+    noisy_rabbit_positions = []
+
+    
     # Zero gradients
     opt_rabbit.zero_grad()
     opt_wolf.zero_grad()
     
     # Initialize positions and history
-    rabbit_pos = torch.zeros(2, requires_grad=True)
-    wolf_pos = torch.zeros(2, requires_grad=True)
+    rabbit_pos = torch.tensor(current_rabbit_pos, requires_grad=True)
+    wolf_pos = torch.tensor(current_wolf_pos, requires_grad=True)
     rabbit_log_probs = []
     wolf_log_probs = []
 
-    for step in range(100):
+    for step in range(num_steps):
         # Rabbit's move
         state_rabbit = torch.cat([rabbit_pos, wolf_pos.detach(), torch.tensor([step / 100.0])])
         action_mean = rabbit_net(state_rabbit)
@@ -116,9 +154,11 @@ def train_step():
 
         rabbit_pos = rabbit_pos + action_rabbit
         rabbit_log_probs.append(log_prob_rabbit)
+        rabbit_positions.append(rabbit_pos.detach().numpy().copy())
 
         # Wolf's noisy observation - detach rabbit_pos to break gradient connection
         obs_rabbit = get_noisy_observation(rabbit_pos.detach())
+        noisy_rabbit_positions.append(obs_rabbit.detach().numpy().copy())
 
         # Wolf's move
         state_wolf = torch.cat([wolf_pos, obs_rabbit, torch.tensor([step / 100.0])])
@@ -133,6 +173,12 @@ def train_step():
 
         wolf_pos = wolf_pos + action_wolf
         wolf_log_probs.append(log_prob_wolf)
+        wolf_positions.append(wolf_pos.detach().numpy().copy())
+
+
+    # Update current positions for next training step
+    current_rabbit_pos = rabbit_pos.detach().clone()
+    current_wolf_pos = wolf_pos.detach().clone()
 
     # Check win condition
     distance = torch.norm(rabbit_pos - wolf_pos)
@@ -150,3 +196,4 @@ def train_step():
     opt_wolf.step()
     
     print(f"Training step complete. Rabbit reward: {rabbit_reward}, Wolf reward: {wolf_reward}")
+    print(f"Current positions | Rabbit: {current_rabbit_pos}, Wolf: {current_wolf_pos}|")
