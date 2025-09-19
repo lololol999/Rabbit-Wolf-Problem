@@ -44,14 +44,19 @@ class NeuralNetworkVisualizer:
             return (255, 255 - intensity, 255 - intensity)
 
     def update_activations(self):
+        # Get the appropriate network based on type
+        if self.network_type == "rabbit":
+            self.net = model.rabbit_net
+        else:
+            self.net = model.wolf_net
+            
         # Get the latest activations from the model
         if hasattr(self.net, 'layer_activations') and len(self.net.layer_activations) > 0:
             self.activations = self.net.layer_activations
-            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 2)
         else:
             # Default activations if none available (now includes input layer)
             self.activations = [[0] * 5, [0] * 10, [0] * 10, [0] * 10, [0] * 6, [0] * 2]
-            self.layer_spacing = self.drawing_space_width // (len(self.activations) + 2)
+        self.layer_spacing = self.drawing_space_width // (len(self.activations) + 2)
 
     def draw_neuron_connections(self, surface):
         if not self.activations or len(self.activations) < 2:
