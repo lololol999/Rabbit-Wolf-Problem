@@ -166,17 +166,17 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     for i in range(1, min(len(distances), len(distances_to_noisy)+1)):
         # Base reward based on distance change to real rabbit
         distance_change = distances[i-1] - distances[i]  # Opposite of rabbit
-        wolf_reward = distance_change * 0.05
-        
+        wolf_reward = distance_change * 0.3
+
         # Small reward for following the noisy observation
         if i-1 < len(distances_to_noisy):
             noisy_distance_change = distances_to_noisy[i-2] - distances_to_noisy[i-1] if i > 1 else 0
             wolf_reward += noisy_distance_change * 0.1
             
         # # Small penalty for moving too much
-        # if i-1 < len(wolf_movements):
-        #     movement_penalty = wolf_movements[i-1] * 0.001
-        #     wolf_reward -= movement_penalty
+        if i-1 < len(wolf_movements):
+            movement_penalty = wolf_movements[i-1] * 0.001
+            wolf_reward -= movement_penalty
             
         # Large reward for catching the rabbit
         if distances[i] < 1.0:
