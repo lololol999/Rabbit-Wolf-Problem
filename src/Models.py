@@ -149,7 +149,7 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     for i in range(1, len(distances)):
         # Base reward based on distance change
         distance_change = distances[i] - distances[i-1]
-        rabbit_reward = distance_change * 0.5  # Scale the distance change
+        rabbit_reward = distance_change * 0.1  # Scale the distance change
         
         # Small penalty for moving too much (encourage efficiency)
         if i-1 < len(rabbit_movements):
@@ -157,7 +157,7 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
             rabbit_reward -= movement_penalty
             
         # Large penalty if caught (distance very small)
-        if distances[i] < 5.0:
+        if distances[i] < 1.0:
             rabbit_reward -= 10.0
             
         rabbit_rewards.append(rabbit_reward)
@@ -166,20 +166,20 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     for i in range(1, min(len(distances), len(distances_to_noisy)+1)):
         # Base reward based on distance change to real rabbit
         distance_change = distances[i-1] - distances[i]  # Opposite of rabbit
-        wolf_reward = distance_change * 0.5
+        wolf_reward = distance_change * 0.05
         
         # Small reward for following the noisy observation
         if i-1 < len(distances_to_noisy):
             noisy_distance_change = distances_to_noisy[i-2] - distances_to_noisy[i-1] if i > 1 else 0
             wolf_reward += noisy_distance_change * 0.1
             
-        # Small penalty for moving too much
-        if i-1 < len(wolf_movements):
-            movement_penalty = wolf_movements[i-1] * 0.01
-            wolf_reward -= movement_penalty
+        # # Small penalty for moving too much
+        # if i-1 < len(wolf_movements):
+        #     movement_penalty = wolf_movements[i-1] * 0.001
+        #     wolf_reward -= movement_penalty
             
         # Large reward for catching the rabbit
-        if distances[i] < 5.0:
+        if distances[i] < 1.0:
             wolf_reward += 10.0
             
         wolf_rewards.append(wolf_reward)
@@ -215,7 +215,7 @@ def train_step(num_steps=100):
     
     for step in range(num_steps):
         # Rabbit's move
-        state_rabbit = torch.cat([rabbit_pos, wolf_pos.detach(), torch.tensor([step / 100.0])])
+        state_rabbit = torch.cat([rabbit_pos, wolf_pos.detach(), torch.tensor([step / 1])])
         action_mean = rabbit_net(state_rabbit)
         action_mean = action_mean / torch.norm(action_mean)
         
@@ -236,7 +236,7 @@ def train_step(num_steps=100):
         all_noisy_positions.append(obs_rabbit.detach().clone())
 
         # Wolf's move
-        state_wolf = torch.cat([wolf_pos, obs_rabbit, torch.tensor([step / 100.0])])
+        state_wolf = torch.cat([wolf_pos, obs_rabbit, torch.tensor([step / 1])])
         action_mean_wolf = wolf_net(state_wolf)
         action_mean_wolf = action_mean_wolf / torch.norm(action_mean_wolf)
         
@@ -280,6 +280,7 @@ def train_step(num_steps=100):
         opt_wolf.step()
     
     # Calculate final distance
+    print(rabbit_rewards, "\n", wolf_rewards)
     final_distance = torch.norm(all_rabbit_positions[-1] - all_wolf_positions[-1])
     
     print(f"Training step complete. Final distance: {final_distance:.2f}")

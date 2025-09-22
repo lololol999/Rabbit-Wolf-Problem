@@ -1,4 +1,6 @@
 # Importing pygame module
+import time
+
 import pygame
 from pygame.locals import *
 from math import log, dist
@@ -186,7 +188,7 @@ class PositionVisualizer:
                 # Newer positions have thicker lines
                 line_width = max(1, min(5, int(1 + i/5)))
                 color = COLORS.RED
-                pygame.draw.line(surface, color, 
+                pygame.draw.line(surface, color,
                                 (int(w_pos1[0] + self.start_x), int(w_pos1[1] + self.start_y)),
                                 (int(w_pos2[0] + self.start_x), int(w_pos2[1] + self.start_y)), line_width)
         
@@ -251,20 +253,20 @@ class PositionVisualizer:
             # Draw distance between final positions
             distance = dist((w_end[0], w_end[1]), (r_end[0], r_end[1]))
             distance_text = self.font.render(f"Final Distance: {distance:.1f}", True, COLORS.BLACK)
-            surface.blit(distance_text, (self.start_x + 10, self.start_y + self.height + 10))
+            surface.blit(distance_text, (self.start_x + 200, self.start_y + self.height + 150))
             
             # Draw step count
             step_text = self.font.render(f"Steps: {len(recent_step)}", True, COLORS.BLACK)
-            surface.blit(step_text, (self.start_x + 10, self.start_y + self.height + 30))
+            surface.blit(step_text, (self.start_x + 330, self.start_y + self.height + 150))
 
 # Create visualizers for both networks
-rabbit_model_visualizer = NeuralNetworkVisualizer(50, 100, 450, 400, "rabbit")
-wolf_model_visualizer = NeuralNetworkVisualizer(500, 100, 450, 400, "wolf")
+rabbit_model_visualizer = NeuralNetworkVisualizer(50, 100, 200, 200, "rabbit")
+wolf_model_visualizer = NeuralNetworkVisualizer(300, 100, 200, 200, "wolf")
 
 class WindowHandler:
     def __init__(self, windowSurface):
         self.windowSurface = windowSurface
-        self.position_visualizer = PositionVisualizer(250, 500, 900, 150)
+        self.position_visualizer = PositionVisualizer(960, 540, 900, 150)
         
     def ClearScreen(self, windowSurface):
         windowSurface.fill(COLORS.WHITE)
@@ -301,7 +303,10 @@ class WindowHandler:
             windowSurface.blit(text_surface, (10, 10 + i * 20))
 
 
+        model.train_step(1)
         pygame.display.update()
+        time.sleep(0.2)
+
 
 
 
@@ -309,7 +314,7 @@ class WindowHandler:
         if event.type == KEYDOWN:
             if event.key == K_SPACE:
                 # Trigger a training step when space is pressed
-                model.train_step(100)
+                model.train_step(1)
             elif event.key == K_q:
                 # Reset models and positions when Q is pressed
                 model.reset_models()
