@@ -10,6 +10,7 @@ clock = pygame.time.Clock()
 
 windowHandler = ModelVisuals.WindowHandler(windowSurface)
 
+#main cycle
 running = True
 while running:
     for event in pygame.event.get():
