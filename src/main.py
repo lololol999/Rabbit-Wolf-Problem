@@ -4,12 +4,11 @@ import pygame
 FPS = 30                         
 
 pygame.init()
-windowSurface = pygame.display.set_mode((1920, 1080), pygame.FULLSCREEN);
+windowSurface = pygame.display.set_mode((1400, 700));
 clock = pygame.time.Clock()
 
 
 windowHandler = ModelVisuals.WindowHandler(windowSurface)
-
 
 running = True
 while running:

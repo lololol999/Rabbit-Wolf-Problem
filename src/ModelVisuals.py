@@ -8,7 +8,12 @@ from math import log, dist
 import Colors as COLORS
 import Models as model
 
+
+
 pygame.init()
+
+
+
 
 class NeuralNetworkVisualizer:
     def __init__(self, startX, startY, width, height, network_type="rabbit"):
@@ -151,6 +156,8 @@ class PositionVisualizer:
         self.position_history = []
         self.max_history = 100
         self.font = pygame.font.SysFont('Arial', 14)
+
+
         
     def update_positions(self, rabbit_positions, wolf_positions, noisy_rabbit_positions):
         # Store all positions from the training step as a single entry
@@ -160,8 +167,15 @@ class PositionVisualizer:
         # Keep only the most recent training steps
         if len(self.position_history) > self.max_history:
             self.position_history.pop(0)
-            
+
+
+    AddX = 960
+    AddY = 540
+    AddX2 = 960
+    AddY2 = 540
+
     def draw(self, surface):
+        global AddX, AddY, AddX2, AddY2
         if not self.position_history:
             return
             
@@ -177,10 +191,10 @@ class PositionVisualizer:
                 # Newer positions have thicker lines
                 line_width = max(1, min(5, int(1 + i/5)))
                 color = COLORS.GREEN
-                pygame.draw.line(surface, color, 
+                pygame.draw.line(surface, color,
                                 (int(r_pos1[0] + self.start_x), int(r_pos1[1] + self.start_y)),
                                 (int(r_pos2[0] + self.start_x), int(r_pos2[1] + self.start_y)), line_width)
-            
+
             # Draw wolf path with increasing thickness for newer positions
             for i in range(len(recent_step) - 1):
                 w_pos1 = recent_step[i][1]
@@ -199,18 +213,34 @@ class PositionVisualizer:
             
             # Draw rabbit position
             pygame.draw.circle(surface, COLORS.GREEN, 
-                              (int(r_pos[0] + self.start_x), int(r_pos[1] + self.start_y)), 
-                              int(3 * size_factor))
+                              (int(r_pos[0] + self.AddX), int(r_pos[1] + self.AddY)),
+                              int(5 * size_factor))
             
             # Draw wolf position
             pygame.draw.circle(surface, COLORS.RED, 
-                              (int(w_pos[0] + self.start_x), int(w_pos[1] + self.start_y)), 
-                              int(3 * size_factor))
+                              (int(w_pos[0] + self.AddX2), int(w_pos[1] + self.AddY2)),
+                              int(5 * size_factor))
+            x_Sum = r_pos[0] + self.AddX
+            y_Sum = r_pos[1] + self.AddY
+
+            if x_Sum >= 1400:self.AddX = -r_pos[0]
+            if x_Sum < 0:self.AddX = 1400 - r_pos[0]
+
+            if y_Sum >= 700:self.AddY = -r_pos[1]
+            if y_Sum < 0:self.AddY = 700 - r_pos[1]
+
+            x_Sum2 = w_pos[0] + self.AddX2
+            y_Sum2 = w_pos[1] + self.AddY2
+
+            if x_Sum2 >= 1400:self.AddX2 = -w_pos[0]
+            if x_Sum2 < 0:self.AddX2 = 1400 - w_pos[0]
+
+            if y_Sum2 >= 700:self.AddY2 = -w_pos[1]
+            if y_Sum2 < 0:self.AddY2 = 700 - w_pos[1]
+
+
             
-            # Draw noisy observation position
-            pygame.draw.circle(surface, COLORS.BLUE, 
-                              (int(n_pos[0] + self.start_x), int(n_pos[1] + self.start_y)), 
-                              int(2 * size_factor))
+
             
             # Add step numbers to newer positions
             if i > len(recent_step) - 10:  # Only label last 10 positions
@@ -221,43 +251,43 @@ class PositionVisualizer:
                 surface.blit(step_text, text_pos)
         
         # Draw starting and ending positions with special markers
-        if recent_step:
-            # Starting positions
-            r_start, w_start, n_start = recent_step[0]
-            pygame.draw.circle(surface, COLORS.GREEN, 
-                              (int(r_start[0] + self.start_x), int(r_start[1] + self.start_y)), 
-                              8, 2)
-            pygame.draw.circle(surface, COLORS.RED, 
-                              (int(w_start[0] + self.start_x), int(w_start[1] + self.start_y)), 
-                              8, 2)
+        # if recent_step:
+        #     # Starting positions
+        #     r_start, w_start, n_start = recent_step[0]
+        #     pygame.draw.circle(surface, COLORS.GREEN,
+        #                       (int(r_start[0] + self.start_x), int(r_start[1] + self.start_y)),
+        #                       8, 2)
+        #     pygame.draw.circle(surface, COLORS.RED,
+        #                       (int(w_start[0] + self.start_x), int(w_start[1] + self.start_y)),
+        #                       8, 2)
+        #
+        #     # Add "Start" label
+        #     start_text = self.font.render("Start", True, COLORS.BLACK)
+        #     surface.blit(start_text, (int(r_start[0] + self.start_x) - start_text.get_width()//2,
+        #                              int(r_start[1] + self.start_y) - 25))
             
-            # Add "Start" label
-            start_text = self.font.render("Start", True, COLORS.BLACK)
-            surface.blit(start_text, (int(r_start[0] + self.start_x) - start_text.get_width()//2, 
-                                     int(r_start[1] + self.start_y) - 25))
-            
-            # Ending positions
+            #Ending positions
             r_end, w_end, n_end = recent_step[-1]
-            pygame.draw.circle(surface, COLORS.GREEN, 
-                              (int(r_end[0] + self.start_x), int(r_end[1] + self.start_y)), 
+            pygame.draw.circle(surface, COLORS.GREEN,
+                              (int(r_end[0] + self.start_x), int(r_end[1] + self.start_y)),
                               10)
-            pygame.draw.circle(surface, COLORS.RED, 
-                              (int(w_end[0] + self.start_x), int(w_end[1] + self.start_y)), 
+            pygame.draw.circle(surface, COLORS.RED,
+                              (int(w_end[0] + self.start_x), int(w_end[1] + self.start_y)),
                               10)
-            
+
             # Add "End" label
             end_text = self.font.render("End", True, COLORS.BLACK)
-            surface.blit(end_text, (int(r_end[0] + self.start_x) - end_text.get_width()//2, 
+            surface.blit(end_text, (int(r_end[0] + self.start_x) - end_text.get_width()//2,
                                    int(r_end[1] + self.start_y) + 15))
-            
-            # Draw distance between final positions
+
+            #Draw distance between final positions
             distance = dist((w_end[0], w_end[1]), (r_end[0], r_end[1]))
             distance_text = self.font.render(f"Final Distance: {distance:.1f}", True, COLORS.BLACK)
-            surface.blit(distance_text, (self.start_x + 200, self.start_y + self.height + 150))
-            
-            # Draw step count
+            surface.blit(distance_text, (1100, 650))
+
+            #Draw step count
             step_text = self.font.render(f"Steps: {len(recent_step)}", True, COLORS.BLACK)
-            surface.blit(step_text, (self.start_x + 330, self.start_y + self.height + 150))
+            surface.blit(step_text, (1100, 600))
 
 # Create visualizers for both networks
 rabbit_model_visualizer = NeuralNetworkVisualizer(50, 100, 200, 200, "rabbit")
@@ -293,7 +323,7 @@ class WindowHandler:
         # Display instructions
         font = pygame.font.SysFont('Arial', 16)
         instructions = [
-            "Press SPACE to run 100 training steps",
+            "Press SPACE to run 100 training steps (gives worse training results)",
             "Press Q to reset models and positions"
         ]
 
@@ -314,7 +344,7 @@ class WindowHandler:
         if event.type == KEYDOWN:
             if event.key == K_SPACE:
                 # Trigger a training step when space is pressed
-                model.train_step(1)
+                model.train_step(100)
             elif event.key == K_q:
                 # Reset models and positions when Q is pressed
                 model.reset_models()

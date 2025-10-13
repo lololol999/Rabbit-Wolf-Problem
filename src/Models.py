@@ -1,3 +1,5 @@
+import time
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as functional
@@ -115,7 +117,7 @@ def get_noisy_observation(rabbit_pos):
     return rabbit_pos + offset
 
 # Improved reward system
-def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
+def calculate_rabbit_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     """
     Calculate rewards for both rabbit and wolf based on their performance
     
@@ -132,7 +134,6 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     4. Large reward for catching the rabbit
     """
     rabbit_rewards = []
-    wolf_rewards = []
     
     # Calculate distances at each step
     distances = torch.norm(rabbit_positions - wolf_positions, dim=1)
@@ -143,7 +144,7 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
     
     # Calculate movement amounts
     rabbit_movements = torch.norm(rabbit_positions[1:] - rabbit_positions[:-1], dim=1)
-    wolf_movements = torch.norm(wolf_positions[1:] - wolf_positions[:-1], dim=1)
+
     
     # Rabbit rewards
     for i in range(1, len(distances)):
@@ -162,36 +163,47 @@ def calculate_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
             
         rabbit_rewards.append(rabbit_reward)
     
+
+    
+    # Make sure both reward lists have the same length
+    return (torch.tensor(rabbit_rewards))
+def calculate_wolf_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
+    wolf_rewards = []
+
+    distances = torch.norm(rabbit_positions - wolf_positions, dim=1)
+
+    min_length = min(len(wolf_positions), len(noisy_rabbit_positions))
+    distances_to_noisy = torch.norm(wolf_positions[:min_length] - noisy_rabbit_positions[:min_length], dim=1)
+
+    wolf_movements = torch.norm(wolf_positions[1:] - wolf_positions[:-1], dim=1)
+
     # Wolf rewards
-    for i in range(1, min(len(distances), len(distances_to_noisy)+1)):
+    for i in range(1, min(len(distances), len(distances_to_noisy) + 1)):
         # Base reward based on distance change to real rabbit
-        distance_change = distances[i-1] - distances[i]  # Opposite of rabbit
-        wolf_reward = distance_change * 0.3
+        distance_change = distances[i - 1] - distances[i]  # Opposite of rabbit
+        wolf_reward = distance_change * 0.5
 
         # Small reward for following the noisy observation
-        if i-1 < len(distances_to_noisy):
-            noisy_distance_change = distances_to_noisy[i-2] - distances_to_noisy[i-1] if i > 1 else 0
+        if i - 1 < len(distances_to_noisy):
+            noisy_distance_change = distances_to_noisy[i - 2] - distances_to_noisy[i - 1] if i > 1 else 0
             wolf_reward += noisy_distance_change * 0.1
-            
+
         # # Small penalty for moving too much
-        if i-1 < len(wolf_movements):
-            movement_penalty = wolf_movements[i-1] * 0.001
+        if i - 1 < len(wolf_movements):
+            movement_penalty = wolf_movements[i - 1] * 0.001
             wolf_reward -= movement_penalty
-            
+
         # Large reward for catching the rabbit
         if distances[i] < 1.0:
             wolf_reward += 10.0
-            
+
         wolf_rewards.append(wolf_reward)
-    
-    # Make sure both reward lists have the same length
-    min_reward_length = min(len(rabbit_rewards), len(wolf_rewards))
-    return (torch.tensor(rabbit_rewards[:min_reward_length]), 
-            torch.tensor(wolf_rewards[:min_reward_length]))
+
+        return (torch.tensor(wolf_rewards))
 
 # Training function with improved reward system
 def train_step(num_steps=100):
-    global rabbit_positions, wolf_positions, noisy_rabbit_positions, current_rabbit_pos, current_wolf_pos
+    global rabbit_positions, wolf_positions, noisy_rabbit_positions, current_rabbit_pos, current_wolf_pos, NoisyDistance
     
     # Reset position tracking
     rabbit_positions = []
@@ -212,6 +224,8 @@ def train_step(num_steps=100):
     all_rabbit_positions = [rabbit_pos.detach().clone()]
     all_wolf_positions = [wolf_pos.detach().clone()]
     all_noisy_positions = []
+
+    rabbit_rewards, wolf_rewards = [0], [0]
     
     for step in range(num_steps):
         # Rabbit's move
@@ -230,16 +244,30 @@ def train_step(num_steps=100):
         rabbit_positions.append(rabbit_pos.detach().numpy().copy())
         all_rabbit_positions.append(rabbit_pos.detach().clone())
 
+        rabbit_tensor = torch.stack(all_rabbit_positions)
+        wolf_tensor = torch.stack(all_wolf_positions)
+        noisy_tensor = torch.stack(all_noisy_positions) if all_noisy_positions else torch.zeros(1, 2)
+
+        rabbit_rewards = calculate_rabbit_rewards(rabbit_tensor, wolf_tensor, noisy_tensor)
+
+        time.sleep(0.1)
+
         # Wolf's noisy observation - detach rabbit_pos to break gradient connection
         obs_rabbit = get_noisy_observation(rabbit_pos.detach())
         noisy_rabbit_positions.append(obs_rabbit.detach().numpy().copy())
         all_noisy_positions.append(obs_rabbit.detach().clone())
 
         # Wolf's move
-        state_wolf = torch.cat([wolf_pos, obs_rabbit, torch.tensor([step / 1])])
+        NoisyDistance = 0
+
+        if all_wolf_positions[0] != None:
+            NoisyDistance = torch.norm(all_rabbit_positions[-1] - all_wolf_positions[-1])
+
+        state_wolf = torch.cat([wolf_pos, torch.tensor([NoisyDistance, NoisyDistance]), torch.tensor([step / 1])])
         action_mean_wolf = wolf_net(state_wolf)
         action_mean_wolf = action_mean_wolf / torch.norm(action_mean_wolf)
-        
+
+
         # Create distribution for wolf
         dist_wolf = torch.distributions.Normal(action_mean_wolf, 0.1)
         action_wolf = dist_wolf.rsample()
@@ -251,17 +279,22 @@ def train_step(num_steps=100):
         wolf_positions.append(wolf_pos.detach().numpy().copy())
         all_wolf_positions.append(wolf_pos.detach().clone())
 
+        rabbit_tensor = torch.stack(all_rabbit_positions)
+        wolf_tensor = torch.stack(all_wolf_positions)
+        noisy_tensor = torch.stack(all_noisy_positions) if all_noisy_positions else torch.zeros(1, 2)
+
+        wolf_rewards = calculate_wolf_rewards(rabbit_tensor, wolf_tensor, noisy_tensor)
+
     # Update current positions for next training step
     current_rabbit_pos = rabbit_pos.detach().clone()
     current_wolf_pos = wolf_pos.detach().clone()
-    
+
     # Convert to tensors
     rabbit_tensor = torch.stack(all_rabbit_positions)
     wolf_tensor = torch.stack(all_wolf_positions)
     noisy_tensor = torch.stack(all_noisy_positions) if all_noisy_positions else torch.zeros(1, 2)
-    
+
     # Calculate rewards
-    rabbit_rewards, wolf_rewards = calculate_rewards(rabbit_tensor, wolf_tensor, noisy_tensor)
     
     # Policy gradient update for rabbit
     if len(rabbit_log_probs) > 0 and len(rabbit_rewards) > 0:
