@@ -1,0 +1,24 @@
+import ModelVisuals
+import pygame
+
+FPS = 120 #Bigger = faster steps
+
+pygame.init()
+windowSurface = pygame.display.set_mode((1400, 700));
+clock = pygame.time.Clock()
+
+
+windowHandler = ModelVisuals.WindowHandler(windowSurface)
+
+#main cycle
+running = True
+while running:
+    for event in pygame.event.get():
+        windowHandler.HandleEvent(event);
+        if event.type == pygame.QUIT:
+            running = False;
+        
+    windowHandler.RenderStep(windowSurface)
+    clock.tick(FPS) 
+
+pygame.quit()
