@@ -42,6 +42,7 @@ class NeuralNetworkVisualizer:
         self.font = pygame.font.SysFont('Arial', 14)
         self.update_activations()
 
+
     # Neuron color method
     def GetNeuronColor(self, activation):
         # Converts activation value to a color
@@ -160,12 +161,26 @@ class PositionVisualizer:
         self.position_history = []
         self.max_history = 100
         self.font = pygame.font.SysFont('Arial', 14)
+        self.reset_offsets()
+        self.just_reset = False
 
+
+    def reset_offsets(self):
+        self.AddX = 960
+        self.AddY = 540
+        self.AddX2 = 960
+        self.AddY2 = 540
+        self.just_reset = True
 
 
     def update_positions(self, rabbit_positions, wolf_positions, noisy_rabbit_positions):
         global  StepsAmount
         # Store all positions from the training step as a single entry
+
+        if self.just_reset:
+            self.position_history = []
+            self.just_reset = False
+
         step_positions = list(zip(rabbit_positions, wolf_positions, noisy_rabbit_positions))
         self.position_history.append(step_positions)
         StepsAmount += 1
@@ -175,18 +190,24 @@ class PositionVisualizer:
             self.position_history.pop(0)
 
 
-    AddX = 960
-    AddY = 540
-    AddX2 = 960
-    AddY2 = 540
 
     def draw(self, surface):
-        global AddX, AddY, AddX2, AddY2
         if not self.position_history:
             return
 
         # Get the most recent training step's positions
         recent_step = self.position_history[-1]
+
+        if self.just_reset and recent_step:
+            r_pos, w_pos, n_pos = recent_step[-1]
+
+            self.AddX = 960 - r_pos[0]
+            self.AddY = 540 - r_pos[1]
+            self.AddX2 = 960 - w_pos[0]
+            self.AddY2 = 540 - w_pos[1]
+
+            self.just_reset = False
+
 
         # Draw connecting lines to show the path
         # if len(recent_step) > 1:
@@ -353,17 +374,16 @@ class WindowHandler:
         rabbit_web.load_state_dict(torch.load(rabbit_path))
         wolf_web.load_state_dict(torch.load(wolf_path))
 
-    def zero_model_weights(self, model):
-        with torch.no_grad():
-            for param in model.parameters():
-                param.zero_()
-        return model
+    # def zero_model_weights(self, model):
+    #     with torch.no_grad():
+    #         for param in model.parameters():
+    #             param.zero_()
+    #     return model
 
     def reset_models_weights_and_files(self, rabbit_web, wolf_web, rabbit_path='rabbit_weights.pth', wolf_path='wolf_weights.pth'):
-        rabbit_net = self.zero_model_weights(rabbit_web)
-        wolf_net = self.zero_model_weights(wolf_web)
+        model.reset_models()
 
-        self.save_models(rabbit_net, wolf_net)
+        self.save_models(rabbit_web, wolf_web)
 
     def HandleEvent(self, event):
         global AddX, AddY, AddX2, AddY2
@@ -377,7 +397,8 @@ class WindowHandler:
                 self.save_models(model.rabbit_net, model.wolf_net)
 
                 model.reset_models()
-                AddX, AddY, AddX2, AddY2 = 960, 540, 960, 540
+                self.position_visualizer.reset_offsets()
+
 
                 self.load_models(model.rabbit_net, model.wolf_net)
                 StepsAmount = 0
@@ -386,11 +407,11 @@ class WindowHandler:
             if event.key == K_p:
                 self.reset_models_weights_and_files(model.rabbit_net, model.wolf_net)
                 model.reset_models()
-                AddX, AddY, AddX2, AddY2 = 960, 540, 960, 540
+                self.position_visualizer.reset_offsets()
                 StepsAmount = 0
             if event.key == K_v:
                 self.load_models(model.rabbit_net, model.wolf_net)
             if event.key == K_z:
                 model.reset_models()
-                AddX, AddY, AddX2, AddY2 = 960, 540, 960, 540
+                self.position_visualizer.reset_offsets()
                 StepsAmount = 0

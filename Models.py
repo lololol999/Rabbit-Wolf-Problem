@@ -38,16 +38,16 @@ class RabbitNet(nn.Module):
         # Record input as first layer activation
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc1(x))
+        x = functional.leaky_relu(self.fc1(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc2(x))
+        x = functional.leaky_relu(self.fc2(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc3(x))
+        x = functional.leaky_relu(self.fc3(x))
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc4(x))
+        x = functional.leaky_relu(self.fc4(x))
         self.layer_activations.append(x.detach().numpy())
         
         x = self.fc5(x)
@@ -71,16 +71,16 @@ class WolfNet(nn.Module):
         # Record input as first layer activation
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc1(x))
+        x = functional.leaky_relu(self.fc1(x), negative_slope=0.1)
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc2(x))
+        x = functional.leaky_relu(self.fc2(x), negative_slope=0.1)
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc3(x))
+        x = functional.leaky_relu(self.fc3(x), negative_slope=0.1)
         self.layer_activations.append(x.detach().numpy())
         
-        x = functional.relu(self.fc4(x))
+        x = functional.leaky_relu(self.fc4(x), negative_slope=0.1)
         self.layer_activations.append(x.detach().numpy())
         
         x = self.fc5(x)
@@ -96,27 +96,29 @@ wolf_net = WolfNet()
 opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
 opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
 
+
 def reset_models():
     global current_rabbit_pos, current_wolf_pos, rabbit_net, wolf_net, opt_rabbit, opt_wolf
-    
+    global all_rabbit_positions, all_wolf_positions, all_noisy_positions
+
     # Reset networks
     rabbit_net = RabbitNet()
     wolf_net = WolfNet()
-    
+
     # Reset optimizers
     opt_rabbit = torch.optim.Adam(rabbit_net.parameters(), lr=1e-3)
     opt_wolf = torch.optim.Adam(wolf_net.parameters(), lr=1e-3)
-    
+
     # Reset positions
     current_rabbit_pos = torch.zeros(2)
     current_wolf_pos = torch.zeros(2)
-    
-    print("Models and positions reset to initial state")
 
-print("Rabbit Network:")
-print(rabbit_net)
-print("\nWolf Network:")
-print(wolf_net)
+    # Reset position history
+    all_rabbit_positions = []
+    all_wolf_positions = []
+    all_noisy_positions = []
+
+    print("Models and positions reset to initial state")
 
 def get_noisy_observation(rabbit_pos):
     angle = torch.rand(1) * 2 * math.pi
@@ -125,7 +127,9 @@ def get_noisy_observation(rabbit_pos):
     return rabbit_pos + offset
 
 def FindSigmoidOf(x):
-    return 1 / (1 + math.exp(-x))
+    x = max(min(x, 100), -100)
+    sig = 1 / (1 + math.exp(-abs(x)))
+    return sig if x >= 0 else -sig
 
 # Improved reward system
 def calculate_rabbit_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positions):
@@ -194,9 +198,9 @@ def calculate_rabbit_rewards(rabbit_positions, wolf_positions, noisy_rabbit_posi
         # 7. Capture penalty (progressive penalty based on proximity)
         if distances[i] < 1.0:
             total_reward -= 20.0  # Large penalty if caught
-        elif distances[i] < 3.0:
-            total_reward -= 5.0  # Medium penalty when very close
         elif distances[i] < 5.0:
+            total_reward -= 5.0  # Medium penalty when very close
+        elif distances[i] < 20.0:
             total_reward -= 1.0  # Small warning penalty
 
         rabbit_rewards.append(total_reward)
@@ -271,9 +275,9 @@ def calculate_wolf_rewards(rabbit_positions, wolf_positions, noisy_rabbit_positi
         # 6. Progressive capture rewards
         if distances[i] < 1.0:
             total_reward += 25.0  # Large reward for capture
-        elif distances[i] < 2.0:
+        elif distances[i] < 5.0:
             total_reward += 8.0  # Medium reward for very close
-        elif distances[i] < 4.0:
+        elif distances[i] < 20.0:
             total_reward += 2.0  # Small bonus for getting close
 
         # 7. Persistence bonus (reward for consistent pursuit)
@@ -358,7 +362,6 @@ def train_step(num_steps=100):
             RabbitDPos = all_rabbit_positions[-1] - all_rabbit_positions[-2]
             CaptureAngle = atan2(DPos[1] - RabbitDPos[1], DPos[0] - RabbitDPos[0])
         DPos = rabbit_pos - wolf_pos
-        print(NowDistance, OldDistance, RabbitDPos, CaptureAngle)
 
 
 
@@ -420,8 +423,13 @@ def train_step(num_steps=100):
         opt_wolf.step()
     
     # Calculate final distance
-    print(rabbit_rewards, "\n", wolf_rewards)
     final_distance = torch.norm(all_rabbit_positions[-1] - all_wolf_positions[-1])
     
     print(f"Training step complete. Final distance: {final_distance:.2f}")
     print(f"Current positions | Rabbit: {current_rabbit_pos}, Wolf: {current_wolf_pos}|")
+    # После каждого обучения выводи статистику весов волка:
+    # print("Wolf network - Weight statistics:")
+    # for name, param in wolf_net.named_parameters():
+    #     if 'weight' in name:
+    #         print(f"{name}: min={param.data.min():.3f}, max={param.data.max():.3f}, mean={param.data.mean():.3f}")
+    #
